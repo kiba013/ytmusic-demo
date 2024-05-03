@@ -14,9 +14,10 @@ public class Download {
         String savePath = SAVE_DIRECTORY + File.separator + "%(title)s.%(ext)s";
         Process process = null;
         File saveFile = null;
+        String yt = "/home/kkibv17/yt-dlp/./yt-dlp.sh";
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(
-                    "yt-dlp", "--extract-audio", "--audio-format", "best",
+                    yt, "--extract-audio", "--audio-format", "best",
                     "--audio-format", "mp3",
                     "--output", savePath, url
             );
