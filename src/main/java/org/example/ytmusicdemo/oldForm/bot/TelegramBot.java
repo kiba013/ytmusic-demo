@@ -4,15 +4,6 @@ import org.example.ytmusicdemo.oldForm.config.BotConfig;
 import org.example.ytmusicdemo.oldForm.model.Audio;
 import org.example.ytmusicdemo.oldForm.request.Download;
 import org.example.ytmusicdemo.oldForm.request.Ytdlp;
-import org.jaudiotagger.audio.AudioFile;
-import org.jaudiotagger.audio.AudioFileIO;
-import org.jaudiotagger.audio.exceptions.CannotReadException;
-import org.jaudiotagger.audio.exceptions.CannotWriteException;
-import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
-import org.jaudiotagger.audio.exceptions.ReadOnlyFileException;
-import org.jaudiotagger.tag.FieldKey;
-import org.jaudiotagger.tag.Tag;
-import org.jaudiotagger.tag.TagException;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ActionType;
@@ -26,11 +17,9 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import ws.schild.jave.*;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -132,27 +121,44 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void downloadAudioFileAndSend(Long chatId, String audioId) {
-
         try {
             File file = download.save(audioId);
+
+            // Проверяем расширение файла
+            if (!file.getName().toLowerCase().endsWith(".webm")) {
+                throw new RuntimeException("Unsupported audio format. Only WebM files are supported.");
+            }
+
+            // Создаем новый файл для хранения аудио в формате mp3
+            File mp3File = new File(file.getParent(), file.getName().replace(".webm", ".mp3"));
+
+            // Конвертируем аудио из webm в mp3
+            AudioAttributes audioAttrs = new AudioAttributes();
+            audioAttrs.setCodec("libmp3lame");
+            audioAttrs.setBitRate(128000);
+            audioAttrs.setChannels(2);
+            audioAttrs.setSamplingRate(44100);
+
+            EncodingAttributes attrs = new EncodingAttributes();
+            attrs.setFormat("mp3");
+            attrs.setAudioAttributes(audioAttrs);
+
+            Encoder encoder = new Encoder();
+            encoder.encode(new MultimediaObject(file), mp3File, attrs);
+
+            // Отправляем аудиофайл в Telegram
             SendAudio sendAudio = new SendAudio();
-            AudioFile audioFile = AudioFileIO.read(file);
-            Tag tag = audioFile.getTagOrCreateDefault();
-            String[] title = (file.getName().split("-"));
-            tag.setField(FieldKey.ARTIST, title[0].trim());
-            tag.setField(FieldKey.TITLE, title[1].trim());
-            audioFile.setTag(tag);
-            audioFile.commit();
             sendAudio.setChatId(chatId.toString());
-            sendAudio.setAudio(new InputFile(file));
+            sendAudio.setAudio(new InputFile(mp3File));
             execute(sendAudio);
-            Files.delete(Path.of(file.getAbsolutePath()));
-        } catch (TelegramApiException | CannotWriteException | CannotReadException | TagException |
-                 InvalidAudioFrameException | ReadOnlyFileException | IOException e) {
+
+            // Удаляем временный файл
+            file.delete();
+            mp3File.delete();
+        } catch (TelegramApiException | EncoderException e) {
             throw new RuntimeException(e);
         }
     }
-
     private void deleteMessage(Long chatId, Integer messageId) {
         DeleteMessage deleteMessage = new DeleteMessage();
         deleteMessage.setMessageId(messageId);

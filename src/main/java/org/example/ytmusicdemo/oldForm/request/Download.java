@@ -16,8 +16,7 @@ public class Download {
         File saveFile = null;
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(
-                    "yt-dlp", "--extract-audio", "--audio-format", "best",
-                    "--audio-format", "mp3",
+                    "yt-dlp", "--extract-audio", "--audio-format", "mp3",
                     "--output", savePath, url
             );
             processBuilder.redirectErrorStream(true);
